@@ -55,6 +55,7 @@ void WattCalc::getVoltCrossing(int voltReading) {
 	voltCrossing = 0;
 	return;
 }
+
 void WattCalc::getAmpCrossing(int ampReading) {
 	if (triacIsClosed == HIGH) {
 		ampCrossing = 0;
@@ -79,6 +80,7 @@ void WattCalc::getPhaseDelay() {
 	if (voltCrossing == 1 && counting == 0) {
 		t1 = micros();
 		counting = 1;
+		return;
 	}
 	if (ampCrossing == 1 && counting == 1 && micros() - t1 > 10) {
 		t2 = micros();
@@ -86,6 +88,7 @@ void WattCalc::getPhaseDelay() {
 		counting = 0;
 	}
 }
+
 float WattCalc::calculatePowerFactor() { //converts the running avredge above to power factor with strenuous floating point path. only run once a second or so.
 	zCross = zCrossDelay[0] + zCrossDelay[1] + zCrossDelay[2] + zCrossDelay[3] + zCrossDelay[4];
 	zCross = zCross / 5;

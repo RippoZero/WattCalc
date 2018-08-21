@@ -97,7 +97,7 @@ private:
 	long midOrdinate[20]; // stores the mid ordinates of the waveform
 	byte getSample = 0; //Tracks weather the getVoltMidOrdinates should be taking a sample or not
 	float vProduct; //stores the product of our calculations until it can be sent as a return value
-	int sampleInterval = oneCycleInUs / 20; //20 for the amount of samples
+	int sampleInterval = 950; //time between mid-ordinate samples
 	unsigned long squaredMidOrdinate; //midOrdinate[n] ^ 2
 
 	byte triacPin; //Pin the triac trigger is attached to
