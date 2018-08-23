@@ -65,11 +65,18 @@ private:
 	int aZeroPoint;
 	float aGain;
 
+	int vZeroPointLow; //vZeroPoint plus and minus one to give some leeway when comparing for to find zeroCrossing and maybe trigger the zero crossing a bit early to account for prosessing delay. 
+	int vZeroPointHigh;
+
+	int aZeroPointLow; 
+	int aZeroPointHigh;
+
 	float vToMains(float vValue); //Converts the readings back into the input amplitude if the external cicuitry. 
 	float aToMains(float aValue);
 
 	byte frequency = 50;
 	int oneCycleInUs = 1000000 / frequency;
+	int quarterCycleUs = oneCycleInUs / 4;
 
 	int voltCrossing; //Where the result from the getVoltCrossing functions above is stored
 	int lastVoltReading; //stores the reading from the last cycle
@@ -96,8 +103,18 @@ private:
 	byte sampleNumber = 0; //Number of samples taken. when this reaches 20 it cycles back to 0 and starts filling over the midPrdinate[] array. this happens five times a second.
 	long midOrdinate[20]; // stores the mid ordinates of the waveform
 	byte getSample = 0; //Tracks weather the getVoltMidOrdinates should be taking a sample or not
+	int sampleInterval = 950;
 	float vProduct; //stores the product of our calculations until it can be sent as a return value
-	int sampleInterval = 950; //time between mid-ordinate samples
+	/*Lookup used to find when after zero crossing to collect sample.
+	Doing these calculations on the fly took to long even with integer math.
+	The readings below place 525us between sample. They are also snipped by 2 us to account for 
+	a slight offset to one side of the sinewave due to time of calculations*/
+	int sampleIntervalLookup[20] = { 
+		23, 523, 1048, 1573, 2098,
+		2623, 3148, 3673, 4198, 4723,
+		5248, 5773, 6298, 6823, 7348,
+		7873, 8398, 8923, 9448, 9973
+	};
 	unsigned long squaredMidOrdinate; //midOrdinate[n] ^ 2
 
 	byte triacPin; //Pin the triac trigger is attached to

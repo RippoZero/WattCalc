@@ -9,6 +9,10 @@ WattCalc::WattCalc(float _vRef, int _vRes, int _vZeroPoint, float _vGain, float 
 	aRes = _aRes;
 	aZeroPoint = _aZeroPoint;
 	aGain = _aGain;
+	vZeroPointLow = vZeroPoint - 1;
+	vZeroPointHigh = vZeroPoint + 1;
+	aZeroPointLow = aZeroPoint - 1; 
+	aZeroPointHigh = aZeroPoint + 1;
 }
 
 WattCalc::WattCalc(float _vRef, int _vRes, int _vZeroPoint, float _vGain, float _aRef, int _aRes, int _aZeroPoint, float _aGain, byte _triacPin) {
@@ -21,6 +25,10 @@ WattCalc::WattCalc(float _vRef, int _vRes, int _vZeroPoint, float _vGain, float 
 	aZeroPoint = _aZeroPoint;
 	aGain = _aGain;
 	triacPin = _triacPin;
+	vZeroPointLow = vZeroPoint - 1;
+	vZeroPointHigh = vZeroPoint + 1;
+	aZeroPointLow = aZeroPoint - 1;
+	aZeroPointHigh = aZeroPoint + 1;
 	pinMode(triacPin, OUTPUT);
 }
 
@@ -41,19 +49,18 @@ void WattCalc::getVoltCrossing(int voltReading) {
 		voltCrossing = 0;
 		return;
 	}
-	if (voltReading > vZeroPoint && lastVoltReading < vZeroPoint + 0.1) {
+	if (voltReading > vZeroPoint && lastVoltReading < vZeroPointHigh) {
 		lastVoltReading = voltReading;
 		voltCrossing = 1;
 		return;
 	}
-	if (voltReading < vZeroPoint && lastVoltReading > vZeroPoint - 0.1) {
+	if (voltReading < vZeroPoint && lastVoltReading > vZeroPointLow) {
 		lastVoltReading = voltReading;
 		voltCrossing = -1;
 		return;
 	}
 	lastVoltReading = voltReading;
 	voltCrossing = 0;
-	return;
 }
 
 void WattCalc::getAmpCrossing(int ampReading) {
@@ -61,19 +68,18 @@ void WattCalc::getAmpCrossing(int ampReading) {
 		ampCrossing = 0;
 		return;
 	}
-	if (ampReading > aZeroPoint && lastAmpReading < aZeroPoint + 0.1) {
+	if (ampReading > aZeroPoint && lastAmpReading < aZeroPointHigh) {
 		lastAmpReading = ampReading;
 		ampCrossing = 1;
 		return;
 	}
-	if (ampReading < aZeroPoint && lastAmpReading > aZeroPoint - 0.1) {
+	if (ampReading < aZeroPoint && lastAmpReading > aZeroPointLow) {
 		lastAmpReading = ampReading;
 		ampCrossing = -1;
 		return;
 	}
 	lastAmpReading = ampReading;
 	ampCrossing = 0;
-	return;
 }
 
 void WattCalc::getPhaseDelay() {
@@ -104,8 +110,9 @@ void WattCalc::getVoltMidOrdinates(int voltReading) { //keeps a running sample o
 	if (voltCrossing != 0 && getSample == 0) {
 		vTimer = micros();
 		getSample = 1;
+		return;
 	}
-	if (getSample == 1 && micros() - vTimer > sampleInterval * (sampleNumber + 1)) {
+	if (getSample == 1 && micros() - vTimer >= sampleIntervalLookup[sampleNumber]) {
 		midOrdinate[sampleNumber] = voltReading;
 		sampleNumber++;
 		getSample = 0;
@@ -114,7 +121,8 @@ void WattCalc::getVoltMidOrdinates(int voltReading) { //keeps a running sample o
 		sampleNumber = 0;
 	}
 }
-float WattCalc::calculateVoltageRMS() {//calculates the rms voltage from the running avredge above.
+
+float WattCalc::calculateVoltageRMS() {	//calculates the rms voltage from the running avredge above.
 	for (byte i = 0; i < 20; i++) {
 		if (midOrdinate[i] < vZeroPoint) {
 			midOrdinate[i] = vZeroPoint - midOrdinate[i];
@@ -122,7 +130,7 @@ float WattCalc::calculateVoltageRMS() {//calculates the rms voltage from the run
 		}
 		midOrdinate[i] = midOrdinate[i] - vZeroPoint;
 		squaredMidOrdinate = midOrdinate[i] * midOrdinate[i];
-		vProduct = vProduct + squaredMidOrdinate;
+		vProduct += squaredMidOrdinate;
 	}
 	vProduct = vProduct / 20;
 	vProduct = sqrt(vProduct);
@@ -134,8 +142,9 @@ void WattCalc::getAmpMidOrdinates(int ampReading) { //keeps a running sample of 
 	if (ampCrossing != 0 && agetSample == 0) {
 		aTimer = micros();
 		agetSample = 1;
+		return;
 	}
-	if (agetSample == 1 && micros() - aTimer > sampleInterval * (asampleNumber + 1)) {
+	if (agetSample == 1 && micros() - aTimer >= sampleIntervalLookup[sampleNumber]) {
 		amidOrdinate[asampleNumber] = ampReading;
 		asampleNumber++;
 		agetSample = 0;
@@ -165,8 +174,9 @@ void WattCalc::getVoltPeak(int voltReading) {
 	if (voltCrossing == 1 && getSample == 0) {
 		vTimer = micros();
 		getSample = 1;
+		return;
 	}
-	if (getSample == 1 && micros() - vTimer > oneCycleInUs / 4) { //Takes a sample of the peak value.
+	if (getSample == 1 && micros() - vTimer >= quarterCycleUs) { //Takes a sample of the peak value.
 		vProduct = voltReading;
 		getSample = 0;
 	}
@@ -178,12 +188,14 @@ int WattCalc::approximateVoltRMS() {
 	vProduct = vToMains(vProduct);
 	return vProduct;
 }
+
 void WattCalc::getAmpPeak(int ampReading) {
 	if (ampCrossing == 1 && agetSample == 0) {
 		aTimer = micros();
 		agetSample = 1;
+		return;
 	}
-	if (agetSample == 1 && micros() - aTimer > oneCycleInUs / 4) { //Takes a sample of the peak value.
+	if (agetSample == 1 && micros() - aTimer > quarterCycleUs) { //Takes a sample of the peak value.
 		aProduct = ampReading;
 		agetSample = 0;
 	}
