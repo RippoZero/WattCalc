@@ -1,6 +1,7 @@
 #include <Arduino.h>
 #include <WattCalc.h>
-WattCalc::WattCalc(float _vRef, int _vRes, int _vZeroPoint, float _vGain, float _aRef, int _aRes, int _aZeroPoint, float _aGain) {
+#include <stdint.h>
+WattCalc::WattCalc(float _vRef, int16_t _vRes, int8_t _vZeroPoint, float _vGain, float _aRef, int16_t _aRes, int8_t _aZeroPoint, float _aGain) {
 	vRef = _vRef;
 	vRes = _vRes;
 	vZeroPoint = _vZeroPoint;
@@ -15,7 +16,7 @@ WattCalc::WattCalc(float _vRef, int _vRes, int _vZeroPoint, float _vGain, float 
 	aZeroPointHigh = aZeroPoint + 1;
 }
 
-WattCalc::WattCalc(float _vRef, int _vRes, int _vZeroPoint, float _vGain, float _aRef, int _aRes, int _aZeroPoint, float _aGain, byte _triacPin) {
+WattCalc::WattCalc(float _vRef, int16_t _vRes, int8_t _vZeroPoint, float _vGain, float _aRef, int16_t _aRes, int8_t _aZeroPoint, float _aGain, int8_t _triacPin) {
 	vRef = _vRef;
 	vRes = _vRes;
 	vZeroPoint = _vZeroPoint;
@@ -47,7 +48,7 @@ float WattCalc::aToMains(float aValue) {
 	return aValue;
 }
 
-void WattCalc::getVoltCrossing(int voltReading) {
+void WattCalc::getVoltCrossing(int16_t voltReading) {
 	if (triacIsClosed == HIGH) { //if the triac is closed this reports a zero instead of getting false possitives from having readings floating around 0.
 		voltCrossing = 0;
 		return;
@@ -66,7 +67,7 @@ void WattCalc::getVoltCrossing(int voltReading) {
 	voltCrossing = 0;
 }
 
-void WattCalc::getAmpCrossing(int ampReading) {
+void WattCalc::getAmpCrossing(int16_t ampReading) {
 	if (triacIsClosed == HIGH) {
 		ampCrossing = 0;
 		return;
@@ -108,7 +109,7 @@ float WattCalc::calculatePowerFactor() { //converts the running avredge above to
 	return cos(zCrossRadians);
 }
 
-void WattCalc::getVoltMidOrdinates(int voltReading) { //keeps a running sample of all the mid ordinates required to calculate true rms.
+void WattCalc::getVoltMidOrdinates(int16_t voltReading) { //keeps a running sample of all the mid ordinates required to calculate true rms.
 	if (voltCrossing != 0 && getSample == 0) {
 		vTimer = micros();
 		getSample = 1;
@@ -140,7 +141,7 @@ float WattCalc::calculateVoltageRMS() {	//calculates the rms voltage from the ru
 	return vProduct;
 }
 
-void WattCalc::getAmpMidOrdinates(int ampReading) { //keeps a running sample of all the mid ordinates required to calculate true rms.
+void WattCalc::getAmpMidOrdinates(int16_t ampReading) { //keeps a running sample of all the mid ordinates required to calculate true rms.
 	if (ampCrossing != 0 && agetSample == 0) {
 		aTimer = micros();
 		agetSample = 1;
@@ -172,7 +173,7 @@ float WattCalc::calculateAmpRMS() {//calculates the rms amprage from the running
 	return aProduct;
 }
 
-void WattCalc::getVoltPeak(int voltReading) {
+void WattCalc::getVoltPeak(int16_t voltReading) {
 	if (voltCrossing == 1 && getSample == 0) {
 		vTimer = micros();
 		getSample = 1;
@@ -184,14 +185,14 @@ void WattCalc::getVoltPeak(int voltReading) {
 	}
 }
 
-int WattCalc::approximateVoltRMS() {
+int16_t WattCalc::approximateVoltRMS() {
 	vProduct = vProduct - vZeroPoint;
 	vProduct = vProduct / 1.414;
 	vProduct = vToMains(vProduct);
 	return vProduct;
 }
 
-void WattCalc::getAmpPeak(int ampReading) {
+void WattCalc::getAmpPeak(int16_t ampReading) {
 	if (ampCrossing == 1 && agetSample == 0) {
 		aTimer = micros();
 		agetSample = 1;
@@ -203,14 +204,14 @@ void WattCalc::getAmpPeak(int ampReading) {
 	}
 }
 
-int WattCalc::approximateAmpRMS() {
+int16_t WattCalc::approximateAmpRMS() {
 	aProduct = aProduct - aZeroPoint;
 	aProduct = aProduct / 1.414;
 	aProduct = aToMains(aProduct);
 	return aProduct;
 }
 
-void WattCalc::cutPhaseAngle(byte percentOfAngleToCut) {
+void WattCalc::cutPhaseAngle(int8_t percentOfAngleToCut) {
 	if (percentOfAngleToCut == 100) {
 		digitalWrite(triacPin, LOW);
 		triacIsClosed = HIGH;
