@@ -92,7 +92,6 @@ private:
 	unsigned long asquaredMidOrdinate;
 
 	unsigned long t1 = 0; //Time of first zero crossing
-	unsigned long t2 = 0; //Time of second zero crossing
 	unsigned long zCrossDelay[5]; //5 cycles of t2 - t1. All of these values are added together then divided by 5 to get smoothing
 	unsigned long zCross; //Stores the avredge of the zero crossings
 	float zCrossRadians = 0; //zCross converted to radians
@@ -120,6 +119,7 @@ private:
 	byte triacPin; //Pin the triac trigger is attached to
 	bool triacIsClosed; //keeps track of when the triac is cutting the phase angle. TRUE = triac closed FALSE = triac open.
 	unsigned long triacOffTimer; //time triac will remain off each cycle
-	byte onePercentOfHalfCycle = oneCycleInUs / 200; // One percent of 180 degrees. 
+	int onePercentOfHalfCycle = oneCycleInUs / 200; // One percent of 180 degrees. 
+	int preCalculatedWaitTimes[100]; // the wait times for each percent is stored here and fetched so that we do not have to do the calculations on the fly
 };
 #endif

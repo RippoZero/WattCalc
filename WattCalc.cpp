@@ -30,6 +30,9 @@ WattCalc::WattCalc(float _vRef, int _vRes, int _vZeroPoint, float _vGain, float 
 	aZeroPointLow = aZeroPoint - 1;
 	aZeroPointHigh = aZeroPoint + 1;
 	pinMode(triacPin, OUTPUT);
+	for (uint8_t n = 0; n < 100; n++) {
+		preCalculatedWaitTimes[n+1] = onePercentOfHalfCycle * (n+1);
+	}
 }
 
 float WattCalc::vToMains(float vValue) {
@@ -88,9 +91,8 @@ void WattCalc::getPhaseDelay() {
 		counting = 1;
 		return;
 	}
-	if (ampCrossing == 1 && counting == 1 && micros() - t1 > 10) {
-		t2 = micros();
-		zCrossDelay[n] = t2 - t1;
+	if (ampCrossing == 1 && counting == 1) {
+		zCrossDelay[n] = micros() - t1;
 		counting = 0;
 	}
 }
@@ -116,9 +118,9 @@ void WattCalc::getVoltMidOrdinates(int voltReading) { //keeps a running sample o
 		midOrdinate[sampleNumber] = voltReading;
 		sampleNumber++;
 		getSample = 0;
-	}
-	if (sampleNumber == 20) {
-		sampleNumber = 0;
+		if (sampleNumber == 20) {
+			sampleNumber = 0;
+		}
 	}
 }
 
@@ -148,9 +150,9 @@ void WattCalc::getAmpMidOrdinates(int ampReading) { //keeps a running sample of 
 		amidOrdinate[asampleNumber] = ampReading;
 		asampleNumber++;
 		agetSample = 0;
-	}
-	if (asampleNumber == 20) {
-		asampleNumber = 0;
+		if (asampleNumber == 20) {
+			asampleNumber = 0;
+		}
 	}
 }
 
@@ -214,17 +216,16 @@ void WattCalc::cutPhaseAngle(byte percentOfAngleToCut) {
 		triacIsClosed = HIGH;
 		return;
 }	
-	else {
 		if (voltCrossing != 0) {
 			digitalWrite(triacPin, LOW);
 			triacIsClosed = HIGH;
 			triacOffTimer = micros();
+			return;
 		}
-		if (micros() - triacOffTimer > onePercentOfHalfCycle * percentOfAngleToCut) {
+		if (micros() - triacOffTimer > preCalculatedWaitTimes[percentOfAngleToCut]) {
 			digitalWrite(triacPin, HIGH);
 			triacIsClosed = LOW;
 		}
-}	
 }
 
 
