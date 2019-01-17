@@ -1,7 +1,6 @@
 #include <Arduino.h>
 #include <WattCalc.h>
-#include <stdint.h>
-WattCalc::WattCalc(float _vRef, int16_t _vRes, int8_t _vZeroPoint, float _vGain, float _aRef, int16_t _aRes, int8_t _aZeroPoint, float _aGain) {
+WattCalc::WattCalc(float _vRef, int _vRes, int _vZeroPoint, float _vGain, float _aRef, int _aRes, int _aZeroPoint, float _aGain) {
 	vRef = _vRef;
 	vRes = _vRes;
 	vZeroPoint = _vZeroPoint;
@@ -10,13 +9,9 @@ WattCalc::WattCalc(float _vRef, int16_t _vRes, int8_t _vZeroPoint, float _vGain,
 	aRes = _aRes;
 	aZeroPoint = _aZeroPoint;
 	aGain = _aGain;
-	vZeroPointLow = vZeroPoint - 1;
-	vZeroPointHigh = vZeroPoint + 1;
-	aZeroPointLow = aZeroPoint - 1; 
-	aZeroPointHigh = aZeroPoint + 1;
 }
 
-WattCalc::WattCalc(float _vRef, int16_t _vRes, int8_t _vZeroPoint, float _vGain, float _aRef, int16_t _aRes, int8_t _aZeroPoint, float _aGain, int8_t _triacPin) {
+WattCalc::WattCalc(float _vRef, int _vRes, int _vZeroPoint, float _vGain, float _aRef, int _aRes, int _aZeroPoint, float _aGain, byte _triacPin) {
 	vRef = _vRef;
 	vRes = _vRes;
 	vZeroPoint = _vZeroPoint;
@@ -26,14 +21,7 @@ WattCalc::WattCalc(float _vRef, int16_t _vRes, int8_t _vZeroPoint, float _vGain,
 	aZeroPoint = _aZeroPoint;
 	aGain = _aGain;
 	triacPin = _triacPin;
-	vZeroPointLow = vZeroPoint - 1;
-	vZeroPointHigh = vZeroPoint + 1;
-	aZeroPointLow = aZeroPoint - 1;
-	aZeroPointHigh = aZeroPoint + 1;
 	pinMode(triacPin, OUTPUT);
-	for (uint8_t n = 0; n < 100; n++) {
-		preCalculatedWaitTimes[n+1] = onePercentOfHalfCycle * (n+1);
-	}
 }
 
 float WattCalc::vToMains(float vValue) {
@@ -48,56 +36,56 @@ float WattCalc::aToMains(float aValue) {
 	return aValue;
 }
 
-void WattCalc::getVoltCrossing(int16_t voltReading) {
+void WattCalc::getVoltCrossing(int voltReading) {
 	if (triacIsClosed == HIGH) { //if the triac is closed this reports a zero instead of getting false possitives from having readings floating around 0.
 		voltCrossing = 0;
 		return;
 	}
-	if (voltReading > vZeroPoint && lastVoltReading < vZeroPointHigh) {
+	if (voltReading > vZeroPoint && lastVoltReading < vZeroPoint + 0.1) {
 		lastVoltReading = voltReading;
 		voltCrossing = 1;
 		return;
 	}
-	if (voltReading < vZeroPoint && lastVoltReading > vZeroPointLow) {
+	if (voltReading < vZeroPoint && lastVoltReading > vZeroPoint - 0.1) {
 		lastVoltReading = voltReading;
 		voltCrossing = -1;
 		return;
 	}
 	lastVoltReading = voltReading;
 	voltCrossing = 0;
+	return;
 }
-
-void WattCalc::getAmpCrossing(int16_t ampReading) {
+void WattCalc::getAmpCrossing(int ampReading) {
 	if (triacIsClosed == HIGH) {
 		ampCrossing = 0;
 		return;
 	}
-	if (ampReading > aZeroPoint && lastAmpReading < aZeroPointHigh) {
+	if (ampReading > aZeroPoint && lastAmpReading < aZeroPoint + 0.1) {
 		lastAmpReading = ampReading;
 		ampCrossing = 1;
 		return;
 	}
-	if (ampReading < aZeroPoint && lastAmpReading > aZeroPointLow) {
+	if (ampReading < aZeroPoint && lastAmpReading > aZeroPoint - 0.1) {
 		lastAmpReading = ampReading;
 		ampCrossing = -1;
 		return;
 	}
 	lastAmpReading = ampReading;
 	ampCrossing = 0;
+	return;
 }
 
 void WattCalc::getPhaseDelay() {
 	if (voltCrossing == 1 && counting == 0) {
 		t1 = micros();
 		counting = 1;
-		return;
 	}
-	if (ampCrossing == 1 && counting == 1) {
-		zCrossDelay[n] = micros() - t1;
+	if (ampCrossing == 1 && counting == 1 && micros() - t1 > 10) {
+		t2 = micros();
+		zCrossDelay[n] = t2 - t1;
 		counting = 0;
 	}
 }
-
 float WattCalc::calculatePowerFactor() { //converts the running avredge above to power factor with strenuous floating point path. only run once a second or so.
 	zCross = zCrossDelay[0] + zCrossDelay[1] + zCrossDelay[2] + zCrossDelay[3] + zCrossDelay[4];
 	zCross = zCross / 5;
@@ -109,23 +97,21 @@ float WattCalc::calculatePowerFactor() { //converts the running avredge above to
 	return cos(zCrossRadians);
 }
 
-void WattCalc::getVoltMidOrdinates(int16_t voltReading) { //keeps a running sample of all the mid ordinates required to calculate true rms.
+void WattCalc::getVoltMidOrdinates(int voltReading) { //keeps a running sample of all the mid ordinates required to calculate true rms.
 	if (voltCrossing != 0 && getSample == 0) {
 		vTimer = micros();
 		getSample = 1;
-		return;
 	}
-	if (getSample == 1 && micros() - vTimer >= sampleIntervalLookup[sampleNumber]) {
+	if (getSample == 1 && micros() - vTimer > sampleInterval * (sampleNumber + 1)) {
 		midOrdinate[sampleNumber] = voltReading;
 		sampleNumber++;
 		getSample = 0;
-		if (sampleNumber == 20) {
-			sampleNumber = 0;
-		}
+	}
+	if (sampleNumber == 20) {
+		sampleNumber = 0;
 	}
 }
-
-float WattCalc::calculateVoltageRMS() {	//calculates the rms voltage from the running avredge above.
+float WattCalc::calculateVoltageRMS() {//calculates the rms voltage from the running avredge above.
 	for (byte i = 0; i < 20; i++) {
 		if (midOrdinate[i] < vZeroPoint) {
 			midOrdinate[i] = vZeroPoint - midOrdinate[i];
@@ -133,7 +119,7 @@ float WattCalc::calculateVoltageRMS() {	//calculates the rms voltage from the ru
 		}
 		midOrdinate[i] = midOrdinate[i] - vZeroPoint;
 		squaredMidOrdinate = midOrdinate[i] * midOrdinate[i];
-		vProduct += squaredMidOrdinate;
+		vProduct = vProduct + squaredMidOrdinate;
 	}
 	vProduct = vProduct / 20;
 	vProduct = sqrt(vProduct);
@@ -141,19 +127,18 @@ float WattCalc::calculateVoltageRMS() {	//calculates the rms voltage from the ru
 	return vProduct;
 }
 
-void WattCalc::getAmpMidOrdinates(int16_t ampReading) { //keeps a running sample of all the mid ordinates required to calculate true rms.
+void WattCalc::getAmpMidOrdinates(int ampReading) { //keeps a running sample of all the mid ordinates required to calculate true rms.
 	if (ampCrossing != 0 && agetSample == 0) {
 		aTimer = micros();
 		agetSample = 1;
-		return;
 	}
-	if (agetSample == 1 && micros() - aTimer >= sampleIntervalLookup[sampleNumber]) {
+	if (agetSample == 1 && micros() - aTimer > sampleInterval * (asampleNumber + 1)) {
 		amidOrdinate[asampleNumber] = ampReading;
 		asampleNumber++;
 		agetSample = 0;
-		if (asampleNumber == 20) {
-			asampleNumber = 0;
-		}
+	}
+	if (asampleNumber == 20) {
+		asampleNumber = 0;
 	}
 }
 
@@ -173,60 +158,58 @@ float WattCalc::calculateAmpRMS() {//calculates the rms amprage from the running
 	return aProduct;
 }
 
-void WattCalc::getVoltPeak(int16_t voltReading) {
+void WattCalc::getVoltPeak(int voltReading) {
 	if (voltCrossing == 1 && getSample == 0) {
 		vTimer = micros();
 		getSample = 1;
-		return;
 	}
-	if (getSample == 1 && micros() - vTimer >= quarterCycleUs) { //Takes a sample of the peak value.
+	if (getSample == 1 && micros() - vTimer > oneCycleInUs / 4) { //Takes a sample of the peak value.
 		vProduct = voltReading;
 		getSample = 0;
 	}
 }
 
-int16_t WattCalc::approximateVoltRMS() {
+int WattCalc::approximateVoltRMS() {
 	vProduct = vProduct - vZeroPoint;
 	vProduct = vProduct / 1.414;
 	vProduct = vToMains(vProduct);
 	return vProduct;
 }
-
-void WattCalc::getAmpPeak(int16_t ampReading) {
+void WattCalc::getAmpPeak(int ampReading) {
 	if (ampCrossing == 1 && agetSample == 0) {
 		aTimer = micros();
 		agetSample = 1;
-		return;
 	}
-	if (agetSample == 1 && micros() - aTimer > quarterCycleUs) { //Takes a sample of the peak value.
+	if (agetSample == 1 && micros() - aTimer > oneCycleInUs / 4) { //Takes a sample of the peak value.
 		aProduct = ampReading;
 		agetSample = 0;
 	}
 }
 
-int16_t WattCalc::approximateAmpRMS() {
+int WattCalc::approximateAmpRMS() {
 	aProduct = aProduct - aZeroPoint;
 	aProduct = aProduct / 1.414;
 	aProduct = aToMains(aProduct);
 	return aProduct;
 }
 
-void WattCalc::cutPhaseAngle(int8_t percentOfAngleToCut) {
+void WattCalc::cutPhaseAngle(byte percentOfAngleToCut) {
 	if (percentOfAngleToCut == 100) {
 		digitalWrite(triacPin, LOW);
 		triacIsClosed = HIGH;
 		return;
 }	
+	else {
 		if (voltCrossing != 0) {
 			digitalWrite(triacPin, LOW);
 			triacIsClosed = HIGH;
 			triacOffTimer = micros();
-			return;
 		}
-		if (micros() - triacOffTimer > preCalculatedWaitTimes[percentOfAngleToCut]) {
+		if (micros() - triacOffTimer > onePercentOfHalfCycle * percentOfAngleToCut) {
 			digitalWrite(triacPin, HIGH);
 			triacIsClosed = LOW;
 		}
+}	
 }
 
 
